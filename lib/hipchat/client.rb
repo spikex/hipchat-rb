@@ -94,7 +94,6 @@ module HipChat
         query[:'max-results'] = 1000
         query[:'start-index'] = 0
         loop do
-          puts "Page #{query[:'start-index']}"
           response = self.class.get(@api.rooms_config[:url],
                                     :query => query,
                                     :headers => @api.headers
@@ -104,7 +103,7 @@ module HipChat
           end
           break if response[@api.rooms_config[:data_key]].empty?
           rooms += response[@api.rooms_config[:data_key]]
-          query[:'start-index'] += 1
+          query[:'start-index'] += query[:'max-results']
         end
       else
         response = self.class.get(@api.rooms_config[:url],
