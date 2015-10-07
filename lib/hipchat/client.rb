@@ -86,19 +86,39 @@ module HipChat
     end
 
     def _rooms
-      response = self.class.get(@api.rooms_config[:url],
-        :query => {
-          :auth_token => @token
-        },
-        :headers => @api.headers
-      )
-      case response.code
-      when 200
-        response[@api.rooms_config[:data_key]].map do |r|
-          HipChat::Room.new(@token, r.merge(:api_version => @api_version, :server_url => @options[:server_url]))
+      query = {
+        :auth_token => @token
+      }
+      if @api_version.eql?('v2')
+        rooms = []
+        query[:'max-results'] = 1000
+        query[:'start-index'] = 0
+        loop do
+          puts "Page #{query[:'start-index']}"
+          response = self.class.get(@api.rooms_config[:url],
+                                    :query => query,
+                                    :headers => @api.headers
+                                   )
+          unless response.code == 200
+            raise UnknownResponseCode, "Unexpected #{response.code} for room"
+          end
+          break if response[@api.rooms_config[:data_key]].empty?
+          rooms += response[@api.rooms_config[:data_key]]
+          query[:'start-index'] += 1
         end
       else
-        raise UnknownResponseCode, "Unexpected #{response.code} for room"
+        response = self.class.get(@api.rooms_config[:url],
+                                  :query => query,
+                                  :headers => @api.headers
+                                 )
+        unless response.code == 200
+          raise UnknownResponseCode, "Unexpected #{response.code} for room"
+        end
+        rooms = response[@api.rooms_config[:data_key]]
+      end
+
+      rooms.map do |r|
+        HipChat::Room.new(@token, r.merge(:api_version => @api_version, :server_url => @options[:server_url]))
       end
     end
 
