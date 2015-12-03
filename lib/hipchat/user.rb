@@ -29,16 +29,8 @@ module HipChat
                                  :headers => @api.headers
       )
 
-      case response.code
-      when 200, 204;
-        true
-      when 404
-        raise UnknownUser, "Unknown user: `#{user_id}'"
-      when 401
-        raise Unauthorized, "Access denied to user `#{user_id}'"
-      else
-        raise UnknownResponseCode, "Unexpected #{response.code} for private message to `#{user_id}'"
-      end
+      ErrorHandler.response_code_to_exception_for :user, user_id, response
+      true
     end
 
     #
@@ -51,15 +43,8 @@ module HipChat
         :headers => file_body_headers(@api.headers)
       )
 
-      case response.code
-      when 200, 204; true
-      when 404
-        raise UnknownUser,  "Unknown user: `#{user_id}'"
-      when 401
-        raise Unauthorized, "Access denied to user `#{user_id}'"
-      else
-        raise UnknownResponseCode, "Unexpected #{response.code} for private message to `#{user_id}'"
-      end
+      ErrorHandler.response_code_to_exception_for :user, user_id, response
+      true
     end
 
     #
@@ -71,12 +56,8 @@ module HipChat
                                 :headers => @api.headers
       )
 
-      case response.code
-      when 200
-        User.new(@token, response.merge(:api_version => @api.version))
-      else
-        raise UnknownResponseCode, "Unexpected #{response.code} for view message to `#{user_id}'"
-      end
+      ErrorHandler.response_code_to_exception_for :user, user_id, response
+      User.new(@token, response.merge(:api_version => @api.version))
     end
 
     #
@@ -90,12 +71,30 @@ module HipChat
                                 :headers => @api.headers
       )
 
-      case response.code
-      when 200
-        response.body
-      else
-        raise UnknownResponseCode, "Unexpected #{response.code} for view private message history for `#{user_id}'"
-      end
+      ErrorHandler.response_code_to_exception_for :user, user_id, response
+      response.body
     end
+
+    #
+    # Get private message history
+    #
+    def delete(params = {})
+      case @api.version
+      when 'v1'
+        response = self.class.post(@api.delete_config[:url],
+                                  :query => { :auth_token => @token }.merge(params),
+                                  :headers => @api.headers
+        )
+      when 'v2'
+        response = self.class.delete(@api.delete_config[:url],
+                                  :query => { :auth_token => @token },
+                                  :headers => @api.headers
+        )
+      end
+
+      ErrorHandler.response_code_to_exception_for :user, user_id, response
+      true
+    end
+
   end
 end

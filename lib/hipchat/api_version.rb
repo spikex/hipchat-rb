@@ -20,10 +20,12 @@ module HipChat
           @base_uri = "#{options[:server_url]}/v1"
           @headers = {'Accept' => 'application/json',
              'Content-Type' => 'application/x-www-form-urlencoded'}
-        else
+        elsif @version.eql?('v2')
           @base_uri = "#{options[:server_url]}/v2"
           @headers = {'Accept' => 'application/json',
              'Content-Type' => 'application/json'}
+        else
+          raise InvalidApiVersion, 'Couldn\'t recognize API version'
         end
       end
 
@@ -51,6 +53,19 @@ module HipChat
           },
           'v2' => {
             :url => '/room',
+            :body_format => :to_json
+          }
+        }[version]
+      end
+
+      def create_user_config
+        {
+          'v1' => {
+            :url => '/users/create',
+            :body_format => :to_hash
+          },
+          'v2' => {
+            :url => '/user',
             :body_format => :to_json
           }
         }[version]
@@ -116,10 +131,43 @@ module HipChat
         }[version]
       end
 
+      def delete_room_config
+        {
+          'v1' => {
+            :url => URI::escape("/delete"),
+            :method => :post,
+            :query_params => { :room_id => room_id }
+          },
+          'v2' => {
+            :url => URI::escape("/#{room_id}"),
+            :method => :delete,
+            :query_params => {}
+          }
+        }[version]
+      end
+
       def invite_config
         {
           'v2' => {
             :url => URI::escape("/#{room_id}/invite"),
+            :body_format => :to_json
+          }
+        }[version]
+      end
+
+      def add_member_config
+        {
+          'v2' => {
+            :url => URI::escape("/#{room_id}/member"),
+            :body_format => :to_json
+          }
+        }[version]
+      end
+
+      def send_message_config
+        {
+          'v2' => {
+            :url => URI::escape("/#{room_id}/message"),
             :body_format => :to_json
           }
         }[version]
@@ -142,6 +190,15 @@ module HipChat
         {
           'v2' => {
             :url => URI::escape("/#{room_id}/share/file"),
+            :body_format => :to_json
+          }
+        }[version]
+      end
+
+      def share_link_config
+        {
+          'v2' => {
+            :url => URI::escape("/#{room_id}/share/link"),
             :body_format => :to_json
           }
         }[version]
@@ -177,6 +234,15 @@ module HipChat
         {
           'v2' => {
             :url => URI::escape("/#{room_id}/statistics")
+          }
+        }[version]
+      end
+
+      def webhook_config
+        raise InvalidApiVersion, 'This functionality is not supported in API v1' unless version.eql?('v2')
+        {
+          'v2' => {
+            :url => URI::escape("/#{room_id}/webhook")
           }
         }[version]
       end
@@ -225,6 +291,22 @@ module HipChat
         {
           'v1' => {
             :url => URI::escape('/show'),
+            :body_format => :to_json,
+            :query_params => { :user_id => user_id }
+          },
+          'v2' => {
+            :url => URI::escape("/#{user_id}"),
+            :body_format => :to_json,
+            :query_params => {}
+          }
+        }[version]
+      end
+
+
+      def delete_config
+        {
+          'v1' => {
+            :url => URI::escape('/delete'),
             :body_format => :to_json,
             :query_params => { :user_id => user_id }
           },

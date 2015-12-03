@@ -23,16 +23,8 @@ module HipChat
         :headers => @api.headers
       )
 
-      case response.code
-      when 200
-        response.parsed_response
-      when 404
-        raise UnknownRoom,  "Unknown room: `#{room_id}'"
-      when 401
-        raise Unauthorized, "Access denied to room `#{room_id}'"
-      else
-        raise UnknownResponseCode, "Unexpected #{response.code} for room `#{room_id}'"
-      end
+      ErrorHandler.response_code_to_exception_for :room, room_id, response
+      response.parsed_response
     end
 
     # Update a room
@@ -55,15 +47,17 @@ module HipChat
         }.to_json,
         :headers => @api.headers)
 
-      case response.code
-      when 200, 204; true
-      when 404
-        raise Unknown Room, "Unknown room: `#{room_id}'"
-      when 401
-        raise Unauthorized, "Access denied to room `#{room_id}'"
-      else
-        raise UnknownResponseCode, "Unexpected #{response.code} for room `#{room_id}'"
-      end
+      ErrorHandler.response_code_to_exception_for :room, room_id, response
+      true
+    end
+
+    # Delete a room
+    def delete_room
+      response = self.class.send(@api.delete_room_config[:method], @api.delete_room_config[:url],
+        :query => {:auth_token => @token }.merge(@api.get_room_config[:query_params]),
+        :headers => @api.headers)
+      ErrorHandler.response_code_to_exception_for :room, room_id, response
+      true
     end
 
     # Invite user to this room
@@ -75,19 +69,47 @@ module HipChat
         }.to_json,
         :headers => @api.headers)
 
-      case response.code
-      when 200, 204; true
-      when 404
-        raise UnknownRoom,  "Unknown room: `#{room_id}'"
-      when 401
-        raise Unauthorized, "Access denied to room `#{room_id}'"
-      else
-        raise UnknownResponseCode, "Unexpected #{response.code} for room `#{room_id}'"
-      end
+      ErrorHandler.response_code_to_exception_for :room, room_id, response
+      true
+    end
+
+    # Add member to this room
+    def add_member(user, room_roles=['room_member'])
+      response = self.class.put(@api.add_member_config[:url]+"/#{user}",
+        :query => { :auth_token => @token },
+        :body => {
+          :room_roles => room_roles
+        }.to_json,
+        :headers => @api.headers)
+
+      ErrorHandler.response_code_to_exception_for :room, room_id, response
+      true
     end
 
 
     # Send a message to this room.
+    #
+    # Usage:
+    #
+    #   # Default
+    #   send 'some message'
+    #
+    def send_message(message)
+      response = self.class.post(@api.send_message_config[:url],
+        :query => { :auth_token => @token },
+        :body  => {
+          :room_id => room_id,
+          :message => message,
+        }.send(@api.send_config[:body_format]),
+        :headers => @api.headers
+      )
+
+      ErrorHandler.response_code_to_exception_for :room, room_id, response
+      true
+    end
+
+
+    # Send a notification message to this room.
     #
     # Usage:
     #
@@ -132,15 +154,28 @@ module HipChat
         :headers => @api.headers
       )
 
-      case response.code
-      when 200, 204; true
-      when 404
-        raise UnknownRoom,  "Unknown room: `#{room_id}'"
-      when 401
-        raise Unauthorized, "Access denied to room `#{room_id}'"
-      else
-        raise UnknownResponseCode, "Unexpected #{response.code} for room `#{room_id}'"
+      ErrorHandler.response_code_to_exception_for :room, room_id, response
+      true
+    end
+
+    def share_link(from, message, link)
+      if from.length > 15
+        raise UsernameTooLong, "Username #{from} is `#{from.length} characters long. Limit is 15'"
       end
+
+      response = self.class.post(@api.share_link_config[:url],
+        :query => { :auth_token => @token },
+        :body  => {
+          :room_id        => room_id,
+          :from           => from,
+          :message        => message,
+          :link           => link,
+        }.send(@api.send_config[:body_format]),
+        :headers => @api.headers
+      )
+
+      ErrorHandler.response_code_to_exception_for :room, room_id, response
+      true
     end
 
     # Send a file to this room.
@@ -166,15 +201,8 @@ module HipChat
         :headers => file_body_headers(@api.headers)
       )
 
-      case response.code
-      when 200, 204; true
-      when 404
-        raise UnknownRoom,  "Unknown room: `#{room_id}'"
-      when 401
-        raise Unauthorized, "Access denied to room `#{room_id}'"
-      else
-        raise UnknownResponseCode, "Unexpected #{response.code} for room `#{room_id}'"
-      end
+      ErrorHandler.response_code_to_exception_for :room, room_id, response
+      true
     end
 
     # Change this room's topic
@@ -202,15 +230,8 @@ module HipChat
         :headers => @api.headers
       )
 
-      case response.code
-      when 204,200; true
-      when 404
-        raise UnknownRoom,  "Unknown room: `#{room_id}'"
-      when 401
-        raise Unauthorized, "Access denied to room `#{room_id}'"
-      else
-        raise UnknownResponseCode, "Unexpected #{response.code} for room `#{room_id}'"
-      end
+      ErrorHandler.response_code_to_exception_for :room, room_id, response
+      true
     end
 
     # Pull this room's history
@@ -251,16 +272,8 @@ module HipChat
         :headers => @api.headers
       )
 
-      case response.code
-      when 200
-        response.body
-      when 404
-        raise UnknownRoom,  "Unknown room: `#{room_id}'"
-      when 401
-        raise Unauthorized, "Access denied to room `#{room_id}'"
-      else
-        raise UnknownResponseCode, "Unexpected #{response.code} for room `#{room_id}'"
-      end
+      ErrorHandler.response_code_to_exception_for :room, room_id, response
+      response.body
     end
 
     # Pull this room's statistics
@@ -277,16 +290,113 @@ module HipChat
         :headers => @api.headers
       )
 
-      case response.code
-      when 200
-        response.body
-      when 404
-        raise UnknownRoom,  "Unknown room: `#{room_id}'"
-      when 401
-        raise Unauthorized, "Access denied to room `#{room_id}'"
-      else
-        raise UnknownResponseCode, "Unexpected #{response.code} for room `#{room_id}'"
+      ErrorHandler.response_code_to_exception_for :room, room_id, response
+      response.body
+    end
+
+    # Create a webhook for this room
+    #
+    # Usage:
+    #
+    #   # Default
+    #   create_webhook 'http://example.org/path/to/my/webhook', 'room_event'
+    #
+    # Options:
+    #
+    # +pattern+::  The regular expression pattern to match against messages. Only applicable for message events.
+    #                (default "")
+    # +name+::     The label for this webhook
+    #                (default "")
+    def create_webhook(url, event, options = {})
+      raise InvalidEvent unless %w(room_message room_notification room_exit room_enter room_topic_change room_archived room_deleted room_unarchived).include? event
+
+      begin
+        u = URI::parse(url)
+        raise InvalidUrl unless %w(http https).include? u.scheme
+      rescue URI::InvalidURIError
+        raise InvalidUrl
       end
+
+      options = {
+        :pattern => '',
+        :name => ''
+      }.merge options
+
+      response = self.class.post(@api.webhook_config[:url],
+        :query => {
+          :auth_token => @token
+        },
+        :body => {:url => url, :pattern => options[:pattern], :event => event, :name => options[:name]}.send(@api.send_config[:body_format]),
+        :headers => @api.headers
+      )
+
+      ErrorHandler.response_code_to_exception_for :room, room_id, response
+      response.body
+    end
+
+    # Delete a webhook for this room
+    #
+    # Usage:
+    #
+    #   # Default
+    #   delete_webhook 'webhook_id'
+    def delete_webhook(webhook_id)
+      response = self.class.delete("#{@api.webhook_config[:url]}/#{URI::escape(webhook_id)}",
+                                 :query => {
+                                   :auth_token => @token
+                                 },
+                                 :headers => @api.headers
+      )
+
+      ErrorHandler.response_code_to_exception_for :webhook, webhook_id, response
+      true
+    end
+
+    # Gets all webhooks for this room
+    #
+    # Usage:
+    #
+    #   # Default
+    #   get_all_webhooks
+    #
+    # Options:
+    #
+    # +start-index+::  The regular expression pattern to match against messages. Only applicable for message events.
+    #                (default "")
+    # +max-results+::     The label for this webhook
+    #                (default "")
+    def get_all_webhooks(options = {})
+      options = {:'start-index' => 0, :'max-results' => 100}.merge(options)
+
+      response = self.class.get(@api.webhook_config[:url],
+                                   :query => {
+                                     :auth_token => @token,
+                                     :'start-index' => options[:'start-index'],
+                                     :'max-results' => options[:'max-results']
+                                   },
+                                   :headers => @api.headers
+      )
+
+      ErrorHandler.response_code_to_exception_for :room, room_id, response
+      response.body
+    end
+
+    # Get a webhook for this room
+    #
+    # Usage:
+    #
+    #   # Default
+    #   get_webhook 'webhook_id'
+    def get_webhook(webhook_id)
+      response = self.class.get("#{@api.webhook_config[:url]}/#{URI::escape(webhook_id)}",
+                                :query => {
+                                  :auth_token => @token
+                                },
+                                :headers => @api.headers
+      )
+
+      ErrorHandler.response_code_to_exception_for :webhook, webhook_id, response
+      response.body
     end
 
     private

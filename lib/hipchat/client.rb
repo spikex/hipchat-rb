@@ -44,16 +44,26 @@ module HipChat
         :headers => @api.headers
       )
 
-      case response.code
-      when 201, 200 #CREATED
-        response.parsed_response
-      when 400
-        raise UnknownRoom,  "Error: #{response.message}"
-      when 401
-        raise Unauthorized, 'Access denied'
-      else
-        raise UnknownResponseCode, "Unexpected error #{response.code}"
+      ErrorHandler.response_code_to_exception_for :room, name, response
+      response.parsed_response
+    end
+
+    def create_user(name, email, options={})
+      if name.length > 50
+        raise UsernameTooLong, "User name #{name} is #{name.length} characters long. Limit is 50."
       end
+
+      response = self.class.post(@api.create_user_config[:url],
+        :query => { :auth_token => @token },
+        :body => {
+          :name => name,
+          :email => email
+          }.merge(options).send(@api.create_user_config[:body_format]),
+        :headers => @api.headers
+      )
+
+      ErrorHandler.response_code_to_exception_for :user, email, response
+      response.parsed_response
     end
 
     def user(name)
@@ -98,9 +108,7 @@ module HipChat
                                     :query => query,
                                     :headers => @api.headers
                                    )
-          unless response.code == 200
-            raise UnknownResponseCode, "Unexpected #{response.code} for room"
-          end
+          ErrorHandler.response_code_to_exception_for :room, nil, response
           break if response[@api.rooms_config[:data_key]].empty?
           rooms += response[@api.rooms_config[:data_key]]
           query[:'start-index'] += query[:'max-results']
@@ -110,9 +118,7 @@ module HipChat
                                   :query => query,
                                   :headers => @api.headers
                                  )
-        unless response.code == 200
-          raise UnknownResponseCode, "Unexpected #{response.code} for room"
-        end
+        ErrorHandler.response_code_to_exception_for :room, nil, response
         rooms = response[@api.rooms_config[:data_key]]
       end
 
@@ -129,13 +135,10 @@ module HipChat
         },
         :headers => @api.headers
       )
-      case response.code
-      when 200
-        response[@api.users_config[:data_key]].map do |u|
-          HipChat::User.new(@token, u.merge(:api_version => @api_version, :server_url => @options[:server_url]))
-        end
-      else
-        raise UnknownResponseCode, "Unexpected #{response.code} for user"
+
+      ErrorHandler.response_code_to_exception_for :user, nil, response
+      response[@api.users_config[:data_key]].map do |u|
+        HipChat::User.new(@token, u.merge(:api_version => @api_version, :server_url => @options[:server_url]))
       end
     end
   end
