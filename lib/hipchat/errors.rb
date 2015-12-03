@@ -31,7 +31,7 @@ module HipChat
         when 200, 201, 202, 204;
           return
         when 400
-          raise BadRequest, "The request was invalid. You may be missing a required argument or provided bad data. path:#{response.request.path.to_s} method:#{response.request.http_method.to_s}"
+          raise BadRequest, "The request was invalid. You may be missing a required argument or provided bad data. path:#{response.request.path.to_s} method:#{response.request.http_method.to_s} response:#{response.body}"
         when 401, 403
           raise Unauthorized, "Access denied to #{klass} `#{identifier}'"
         when 404
